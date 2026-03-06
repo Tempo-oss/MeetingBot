@@ -270,11 +270,11 @@
                     </div>
                     <div class="col-span-2 md:col-span-1">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confluence / Asana Ref</label>
-                        <input type="url" id="add-ref" class="w-full p-2 border border-gray-200 dark:border-gray-600 bg-transparent rounded-lg focus:ring-2 focus:ring-slack-blue text-sm dark:text-white" placeholder="https://..." />
+                        <input type="text" id="add-ref" class="w-full p-2 border border-gray-200 dark:border-gray-600 bg-transparent rounded-lg focus:ring-2 focus:ring-slack-blue text-sm dark:text-white" placeholder="URL or Text..." />
                     </div>
                     <div class="col-span-2 md:col-span-1">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Slack URL</label>
-                        <input type="url" id="add-slack" class="w-full p-2 border border-gray-200 dark:border-gray-600 bg-transparent rounded-lg focus:ring-2 focus:ring-slack-blue text-sm dark:text-white" placeholder="https://..." />
+                        <input type="text" id="add-slack" class="w-full p-2 border border-gray-200 dark:border-gray-600 bg-transparent rounded-lg focus:ring-2 focus:ring-slack-blue text-sm dark:text-white" placeholder="URL or Text..." />
                     </div>
                 </div>
             </div>
@@ -394,6 +394,34 @@
                 renderDashboard(); 
             }
         });
+
+        // ----------------------------------------------------
+        // Utilities & Sync
+        // ----------------------------------------------------
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        function isDuplicate(a, b) {
+            return (a.title || '').trim().toLowerCase() === (b.title || '').trim().toLowerCase() &&
+                   (a.type || '').trim().toLowerCase() === (b.type || '').trim().toLowerCase() &&
+                   (a.lob || '').trim().toLowerCase() === (b.lob || '').trim().toLowerCase() &&
+                   (a.launchDate || '').trim() === (b.launchDate || '').trim() &&
+                   (a.endDate || '').trim() === (b.endDate || '').trim() &&
+                   (a.status || '').trim().toLowerCase() === (b.status || '').trim().toLowerCase() &&
+                   (a.reference || '').trim().toLowerCase() === (b.reference || '').trim().toLowerCase() &&
+                   (a.slackUrl || '').trim().toLowerCase() === (b.slackUrl || '').trim().toLowerCase() &&
+                   (a.summary || '').trim().toLowerCase() === (b.summary || '').trim().toLowerCase();
+        }
 
         // ----------------------------------------------------
         // Supabase Initialization
@@ -777,6 +805,43 @@
             });
         }
 
+        // --- Link Formatting Helper ---
+        function createLinkHtml(value, type) {
+            if (!value || value === '-') return '';
+            const trimmed = value.trim();
+            let href = trimmed;
+            let isLink = false;
+            
+            if (/^https?:\/\//i.test(trimmed)) {
+                isLink = true;
+            } else if (trimmed.toLowerCase().startsWith('www.')) {
+                href = 'https://' + trimmed;
+                isLink = true;
+            } else if (!trimmed.includes(' ') && trimmed.includes('.') && trimmed.length > 4) {
+                href = 'https://' + trimmed;
+                isLink = true;
+            }
+
+            const icon = type === 'slack' ? 'message-square' : 'link';
+            const colorClass = type === 'slack' 
+                ? 'text-slack-aubergine hover:text-[#2c0d2d] dark:text-[#E01E5A] dark:hover:text-[#ff3b75]' 
+                : 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300';
+            
+            if (isLink) {
+                return `
+                    <a href="${escapeHTML(href)}" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs ${colorClass} hover:underline ${type === 'slack' ? 'mt-1' : ''}">
+                        <i data-lucide="${icon}" class="w-3 h-3"></i> ${type === 'slack' ? 'Slack Thread' : 'Confluence / Asana'}
+                    </a>
+                `;
+            } else {
+                return `
+                    <span class="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 ${type === 'slack' ? 'mt-1' : ''}" title="Not a valid link">
+                        <i data-lucide="${icon}" class="w-3 h-3"></i> ${escapeHTML(trimmed)}
+                    </span>
+                `;
+            }
+        }
+
         function renderTable() {
             const searchTerm = elSearch.value.toLowerCase();
             const selectedCategory = elCategory.value;
@@ -833,20 +898,8 @@
                     : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 shadow-sm">Ended</span>`;
 
                 let linksHTML = '';
-                if (item.reference && item.reference !== '-') {
-                    linksHTML += `
-                        <a href="${item.reference}" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">
-                            <i data-lucide="link" class="w-3 h-3"></i> Confluence / Asana
-                        </a>
-                    `;
-                }
-                if (item.slackUrl && item.slackUrl !== '-') {
-                    linksHTML += `
-                        <a href="${item.slackUrl}" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs text-slack-aubergine hover:text-[#2c0d2d] dark:text-[#E01E5A] dark:hover:text-[#ff3b75] hover:underline mt-1">
-                            <i data-lucide="message-square" class="w-3 h-3"></i> Slack Thread
-                        </a>
-                    `;
-                }
+                linksHTML += createLinkHtml(item.reference, 'ref');
+                linksHTML += createLinkHtml(item.slackUrl, 'slack');
 
                 return `
                     <tr class="hover:bg-gray-50/80 dark:hover:bg-gray-700/50 transition-colors group">
@@ -982,15 +1035,6 @@
                 return alert("Title and Summary are required fields.");
             }
 
-            // Duplicate prevention
-            if (editingAnnouncementId) {
-                const isDuplicate = announcements.some(a => a.title.toLowerCase() === title.toLowerCase() && a.id !== editingAnnouncementId);
-                if (isDuplicate) return alert("An announcement with this exact title already exists.");
-            } else {
-                const isDuplicate = announcements.some(a => a.title.toLowerCase() === title.toLowerCase());
-                if (isDuplicate) return alert("An announcement with this exact title already exists. Please choose a unique title.");
-            }
-
             const updatedAnn = {
                 title: title,
                 summary: summary,
@@ -1002,6 +1046,15 @@
                 slackUrl: document.getElementById('add-slack').value.trim(),
                 status: document.getElementById('add-status').value
             };
+
+            // Duplicate prevention (Strict: ALL columns)
+            if (editingAnnouncementId) {
+                const isDup = announcements.some(a => isDuplicate(a, updatedAnn) && a.id !== editingAnnouncementId);
+                if (isDup) return alert("An exact duplicate of this announcement already exists.");
+            } else {
+                const isDup = announcements.some(a => isDuplicate(a, updatedAnn));
+                if (isDup) return alert("An exact duplicate of this announcement already exists.");
+            }
 
             if (editingAnnouncementId) {
                 // Editing existing
@@ -1186,8 +1239,8 @@
                 });
                 
                 if (obj.title) {
-                    const existsLocally = announcements.some(a => a.title.toLowerCase() === obj.title.toLowerCase());
-                    const existsInBatch = uniqueNewData.some(a => a.title.toLowerCase() === obj.title.toLowerCase());
+                    const existsLocally = announcements.some(a => isDuplicate(a, obj));
+                    const existsInBatch = uniqueNewData.some(a => isDuplicate(a, obj));
                     
                     if (!existsLocally && !existsInBatch) {
                         uniqueNewData.push(obj);
@@ -1205,7 +1258,7 @@
             closePasteModal();
             updateAllViews();
             await insertManySupabase(uniqueNewData); // Supabase sync
-            alert(`Successfully imported ${uniqueNewData.length} new announcements! Duplicates were skipped.`);
+            alert(`Successfully imported ${uniqueNewData.length} new announcements! Exact duplicates were skipped.`);
         });
 
         // ----------------------------------------------------
@@ -1245,8 +1298,8 @@
                     });
                     
                     if (obj.title) {
-                        const existsLocally = announcements.some(a => a.title.toLowerCase() === obj.title.toLowerCase());
-                        const existsInBatch = uniqueNewData.some(a => a.title.toLowerCase() === obj.title.toLowerCase());
+                        const existsLocally = announcements.some(a => isDuplicate(a, obj));
+                        const existsInBatch = uniqueNewData.some(a => isDuplicate(a, obj));
                         
                         if (!existsLocally && !existsInBatch) {
                             uniqueNewData.push(obj);
@@ -1263,7 +1316,7 @@
                 
                 updateAllViews();
                 await insertManySupabase(uniqueNewData); // Supabase sync
-                alert(`Successfully imported ${uniqueNewData.length} new announcements! Duplicates were skipped.`);
+                alert(`Successfully imported ${uniqueNewData.length} new announcements! Exact duplicates were skipped.`);
             };
             reader.readAsText(file);
             e.target.value = ''; // reset
@@ -1303,22 +1356,6 @@
             a.click();
             URL.revokeObjectURL(url);
         });
-
-        // ----------------------------------------------------
-        // Utilities & Sync
-        // ----------------------------------------------------
-        function escapeHTML(str) {
-            if (!str) return '';
-            return str.replace(/[&<>'"]/g, 
-                tag => ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    "'": '&#39;',
-                    '"': '&quot;'
-                }[tag] || tag)
-            );
-        }
 
         function updateAllViews() {
             updateCategories();
