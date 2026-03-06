@@ -88,6 +88,9 @@
                 <button id="btn-admin-login" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors">
                     <i data-lucide="lock" class="w-4 h-4"></i> Admin Access
                 </button>
+                <button id="btn-mentor-login" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                    <i data-lucide="users" class="w-4 h-4"></i> Mentor Access
+                </button>
                 <button id="btn-template" class="admin-only hidden flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors">
                     <i data-lucide="download" class="w-4 h-4"></i> Template
                 </button>
@@ -193,6 +196,15 @@
                         <input type="date" id="filter-end-date" title="End Date" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 bg-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-slack-blue text-sm dark:text-gray-300 [&::-webkit-calendar-picker-indicator]:dark:invert" />
                     </div>
                 </div>
+
+                <!-- Active Only Toggle -->
+                <div class="col-span-1 md:col-span-4 flex items-center justify-between mt-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="filter-active-only" class="sr-only peer">
+                        <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-slack-blue dark:peer-focus:ring-slack-blue rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-slack-green"></div>
+                        <span class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Show Active Announcements Only</span>
+                    </label>
+                </div>
             </div>
 
             <!-- Data List -->
@@ -204,7 +216,7 @@
                                 <th class="px-6 py-4 font-medium w-1/3">Announcement</th>
                                 <th class="px-6 py-4 font-medium">Type / Date</th>
                                 <th class="px-6 py-4 font-medium">Links</th>
-                                <th class="px-6 py-4 font-medium text-right">Actions</th>
+                                <th id="th-actions" class="px-6 py-4 font-medium text-right hidden">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="table-body" class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -310,7 +322,7 @@
                 </p>
                 
                 <!-- Form to add new emails to the global roster -->
-                <form id="huddle-form" class="flex gap-2 mb-4 admin-only hidden">
+                <form id="huddle-form" class="flex gap-2 mb-4 hidden">
                     <input type="email" id="huddle-agent-input" placeholder="Add associate email to roster..." class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-slack-blue text-sm dark:text-white" />
                     <button type="submit" id="huddle-add-btn" class="px-3 py-2 bg-slack-blue text-white rounded-lg hover:bg-[#2ca6cf] disabled:opacity-50 text-sm font-medium whitespace-nowrap">
                         Add to Roster
@@ -432,6 +444,7 @@
                 
                 document.getElementById('filter-start-date').value = '';
                 document.getElementById('filter-end-date').value = '';
+                document.getElementById('filter-active-only').checked = false; // reset active toggle to find anything
                 
                 switchTab('list');
                 setQuickFilter('All');
@@ -451,6 +464,8 @@
         let associateEmails = JSON.parse(localStorage.getItem('tempoAssociateEmails')) || [];
         
         let isAdmin = false; // Protected by code 52600480
+        let isMentor = false; // Protected by code TempoMentors
+        
         let activeHuddleModalId = null;
         let editingAnnouncementId = null; 
 
@@ -461,6 +476,7 @@
         const elCategory = document.getElementById('filter-category');
         const elStartDate = document.getElementById('filter-start-date');
         const elEndDate = document.getElementById('filter-end-date');
+        const elActiveOnly = document.getElementById('filter-active-only');
         const elTableBody = document.getElementById('table-body');
 
         // Modals
@@ -472,7 +488,7 @@
         lucide.createIcons();
 
         // ----------------------------------------------------
-        // Admin Logic
+        // Admin & Mentor Access Logic
         // ----------------------------------------------------
         document.getElementById('btn-admin-login').addEventListener('click', () => {
             if (isAdmin) {
@@ -486,28 +502,68 @@
                     alert("Invalid access code.");
                 }
             }
-            updateAdminUI();
+            updateAccessUI();
             renderTable(); // Re-render to show/hide Edit & Delete buttons
             renderHuddleList(); // Re-render to show/hide delete email buttons
         });
 
-        function updateAdminUI() {
+        document.getElementById('btn-mentor-login').addEventListener('click', () => {
+            if (isMentor) {
+                isMentor = false;
+                alert("Mentor mode disabled. Huddle tracker locked.");
+            } else {
+                const code = prompt("Enter Mentor Access Code to unlock huddles:");
+                if (code === "TempoMentors") {
+                    isMentor = true;
+                } else if (code !== null) {
+                    alert("Invalid access code.");
+                }
+            }
+            updateAccessUI();
+            renderTable(); // Re-render to show/hide huddle actions in table
+            renderHuddleList();
+        });
+
+        function updateAccessUI() {
+            // Admin only elements
             const adminEls = document.querySelectorAll('.admin-only');
             adminEls.forEach(el => {
                 if (isAdmin) el.classList.remove('hidden');
                 else el.classList.add('hidden');
             });
 
-            const btn = document.getElementById('btn-admin-login');
+            // Admin Button styling
+            const btnAdmin = document.getElementById('btn-admin-login');
             if (isAdmin) {
-                btn.innerHTML = '<i data-lucide="unlock" class="w-4 h-4"></i> Data Management: ON';
-                btn.classList.remove('bg-gray-100', 'text-gray-600', 'dark:bg-gray-700', 'dark:text-gray-300');
-                btn.classList.add('bg-green-100', 'text-green-700', 'border', 'border-green-300', 'dark:bg-green-900/30', 'dark:text-green-400', 'dark:border-green-800');
+                btnAdmin.innerHTML = '<i data-lucide="unlock" class="w-4 h-4"></i> Data Management: ON';
+                btnAdmin.classList.remove('bg-gray-100', 'text-gray-600', 'dark:bg-gray-700', 'dark:text-gray-300');
+                btnAdmin.classList.add('bg-green-100', 'text-green-700', 'border', 'border-green-300', 'dark:bg-green-900/30', 'dark:text-green-400', 'dark:border-green-800');
             } else {
-                btn.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i> Admin Access';
-                btn.classList.add('bg-gray-100', 'text-gray-600', 'dark:bg-gray-700', 'dark:text-gray-300');
-                btn.classList.remove('bg-green-100', 'text-green-700', 'border', 'border-green-300', 'dark:bg-green-900/30', 'dark:text-green-400', 'dark:border-green-800');
+                btnAdmin.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i> Admin Access';
+                btnAdmin.classList.add('bg-gray-100', 'text-gray-600', 'dark:bg-gray-700', 'dark:text-gray-300');
+                btnAdmin.classList.remove('bg-green-100', 'text-green-700', 'border', 'border-green-300', 'dark:bg-green-900/30', 'dark:text-green-400', 'dark:border-green-800');
             }
+
+            // Mentor Button styling
+            const btnMentor = document.getElementById('btn-mentor-login');
+            if (isMentor) {
+                btnMentor.innerHTML = '<i data-lucide="unlock" class="w-4 h-4"></i> Mentor Access: ON';
+                btnMentor.classList.remove('bg-gray-100', 'text-gray-600', 'dark:bg-gray-700', 'dark:text-gray-300');
+                btnMentor.classList.add('bg-slack-blue/20', 'text-slack-blue', 'border', 'border-slack-blue/30', 'dark:bg-slack-blue/30', 'dark:text-blue-300', 'dark:border-slack-blue/50');
+            } else {
+                btnMentor.innerHTML = '<i data-lucide="users" class="w-4 h-4"></i> Mentor Access';
+                btnMentor.classList.add('bg-gray-100', 'text-gray-600', 'dark:bg-gray-700', 'dark:text-gray-300');
+                btnMentor.classList.remove('bg-slack-blue/20', 'text-slack-blue', 'border', 'border-slack-blue/30', 'dark:bg-slack-blue/30', 'dark:text-blue-300', 'dark:border-slack-blue/50');
+            }
+
+            // Huddle global roster form visibility (Admin or Mentor)
+            const huddleForm = document.getElementById('huddle-form');
+            if (isAdmin || isMentor) {
+                huddleForm.classList.remove('hidden');
+            } else {
+                huddleForm.classList.add('hidden');
+            }
+
             lucide.createIcons();
         }
 
@@ -869,6 +925,7 @@
             const selectedCategory = elCategory.value;
             const startDate = elStartDate.value;
             const endDate = elEndDate.value;
+            const activeOnly = elActiveOnly.checked;
 
             const filtered = announcements.filter(item => {
                 const matchesSearch = 
@@ -886,6 +943,10 @@
                     if (startDate && itemDate < new Date(startDate)) matchesDate = false;
                     if (endDate && itemDate > new Date(endDate)) matchesDate = false;
                 }
+
+                if (activeOnly && !isAnnouncementActive(item.status)) {
+                    return false;
+                }
                 
                 return matchesSearch && matchesCat && matchesDate;
             });
@@ -897,10 +958,17 @@
                 return dateB - dateA; 
             });
 
+            // Handle actions column visibility
+            const showActions = isAdmin || isMentor;
+            const thActions = document.getElementById('th-actions');
+            if (thActions) {
+                thActions.classList.toggle('hidden', !showActions);
+            }
+
             if (filtered.length === 0) {
                 elTableBody.innerHTML = `
                     <tr>
-                        <td colSpan="4" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <td colSpan="${showActions ? '4' : '3'}" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                             No announcements found matching your criteria.
                         </td>
                     </tr>
@@ -949,12 +1017,15 @@
                                 ${linksHTML}
                             </div>
                         </td>
+                        ${showActions ? `
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-2">
+                                ${(isAdmin || isMentor) ? `
                                 <button onclick="openHuddleModal('${item.id}')" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${huddleBtnClass}">
                                     <i data-lucide="check-square" class="w-3.5 h-3.5"></i>
                                     ${huddleCount > 0 ? `${huddleCount} Ticked` : 'Huddle'}
                                 </button>
+                                ` : ''}
                                 ${isAdmin ? `
                                 <button onclick="openEditModal('${item.id}')" class="p-1.5 text-gray-400 hover:text-slack-blue dark:hover:text-blue-400 transition-colors bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-sm" title="Edit">
                                     <i data-lucide="edit" class="w-4 h-4"></i>
@@ -965,6 +1036,7 @@
                                 ` : ''}
                             </div>
                         </td>
+                        ` : ''}
                     </tr>
                 `;
             }).join('');
@@ -1106,6 +1178,7 @@
         elCategory.addEventListener('change', (e) => setQuickFilter(e.target.value));
         elStartDate.addEventListener('input', renderTable);
         elEndDate.addEventListener('input', renderTable);
+        elActiveOnly.addEventListener('change', renderTable);
 
         // ----------------------------------------------------
         // Huddle Modal Logic & Email Roster
@@ -1184,7 +1257,7 @@
                     <div class="text-sm text-gray-500 dark:text-gray-400 text-center py-6 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-200 dark:border-gray-600">
                         <i data-lucide="mail-warning" class="w-8 h-8 mx-auto text-gray-300 dark:text-gray-500 mb-2"></i>
                         No associate emails added to the roster yet.<br/>
-                        ${isAdmin ? 'Use the form above to add your team members.' : 'Ask an admin to populate the roster.'}
+                        ${(isAdmin || isMentor) ? 'Use the form above to add your team members.' : 'Ask an admin to populate the roster.'}
                     </div>
                 `;
                 lucide.createIcons({ root: huddleListEl });
@@ -1197,7 +1270,7 @@
                 <div class="flex items-center gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg border ${isChecked ? 'border-slack-blue/40 bg-slack-blue/5' : 'border-gray-200 dark:border-gray-600'} shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" onclick="toggleHuddleEmail('${escapeHTML(email)}')">
                     <input type="checkbox" class="w-4 h-4 text-slack-blue rounded border-gray-300 dark:border-gray-500 dark:bg-gray-700 focus:ring-slack-blue cursor-pointer pointer-events-none" ${isChecked ? 'checked' : ''} />
                     <span class="text-sm font-medium ${isChecked ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'} select-none flex-1 truncate" title="${escapeHTML(email)}">${escapeHTML(email)}</span>
-                    ${isAdmin ? `<button onclick="event.stopPropagation(); removeAssociateEmail('${escapeHTML(email)}')" class="p-1 text-gray-400 hover:text-slack-red transition-colors rounded-md" title="Delete from roster"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                    ${(isAdmin || isMentor) ? `<button onclick="event.stopPropagation(); removeAssociateEmail('${escapeHTML(email)}')" class="p-1 text-gray-400 hover:text-slack-red transition-colors rounded-md" title="Delete from roster"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
                 </div>
                 `;
             }).join('');
