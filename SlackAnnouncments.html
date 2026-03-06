@@ -10,8 +10,10 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Small custom scrollbar for the huddle list */
+        /* Small custom scrollbar */
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
@@ -42,16 +44,19 @@
                 <p class="text-sm text-gray-500 mt-1">Central POC for searching and tracking department updates.</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button id="btn-template" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                <button id="btn-admin-login" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                    <i data-lucide="lock" class="w-4 h-4"></i> Admin Access
+                </button>
+                <button id="btn-template" class="admin-only hidden flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
                     <i data-lucide="download" class="w-4 h-4"></i> Template
                 </button>
-                <button id="btn-show-paste" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm">
+                <button id="btn-show-paste" class="admin-only hidden flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm">
                     <i data-lucide="clipboard" class="w-4 h-4"></i> Paste Table
                 </button>
-                <button id="btn-import-csv" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
+                <button id="btn-import-csv" class="admin-only hidden flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
                     <i data-lucide="upload" class="w-4 h-4"></i> Import CSV
                 </button>
-                <button id="btn-show-add" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">
+                <button id="btn-show-add" class="admin-only hidden flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">
                     <i data-lucide="plus" class="w-4 h-4"></i> Add Manual
                 </button>
                 <input type="file" accept=".csv" id="file-input" class="hidden" />
@@ -61,10 +66,10 @@
         <!-- Tabs Navigation -->
         <div class="border-b border-gray-200">
             <nav class="-mb-px flex gap-6" aria-label="Tabs">
-                <button id="tab-dashboard" onclick="switchTab('dashboard')" class="border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2">
+                <button id="tab-dashboard" onclick="switchTab('dashboard')" class="border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors">
                     <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
                 </button>
-                <button id="tab-list" onclick="switchTab('list')" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2">
+                <button id="tab-list" onclick="switchTab('list')" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors">
                     <i data-lucide="list" class="w-4 h-4"></i> Announcements
                 </button>
             </nav>
@@ -93,11 +98,21 @@
                 </div>
             </div>
 
-            <!-- Breakdown View (Category Stats) -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Announcements by Category</h2>
-                <div id="category-breakdown" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    <!-- Populated via JS -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Last 7 Days -->
+                <div class="md:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Last 7 Days</h2>
+                    <div id="last-7-days-content" class="overflow-y-auto max-h-48 space-y-3 custom-scrollbar pr-2">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+
+                <!-- Breakdown View (Category Stats) -->
+                <div class="md:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Announcements by Category</h2>
+                    <div id="category-breakdown" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- Populated via JS -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -116,7 +131,7 @@
             <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="relative col-span-1 md:col-span-2">
                     <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input type="text" id="filter-search" placeholder="Search announcements or summaries..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                    <input type="text" id="filter-search" placeholder="Search titles, summaries, or links..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
                 </div>
                 
                 <div class="relative">
@@ -145,7 +160,7 @@
                                 <th class="px-6 py-4 font-medium w-1/3">Announcement</th>
                                 <th class="px-6 py-4 font-medium">Type / Date</th>
                                 <th class="px-6 py-4 font-medium">Links</th>
-                                <th class="px-6 py-4 font-medium text-right">Huddle Tracking</th>
+                                <th class="px-6 py-4 font-medium text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="table-body" class="divide-y divide-gray-100">
@@ -158,13 +173,13 @@
 
     </div>
 
-    <!-- Add Manual Announcement Modal -->
+    <!-- Add/Edit Announcement Modal -->
     <div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden transform transition-all duration-200 scale-100">
             <div class="flex justify-between items-center p-4 border-b border-gray-100">
                 <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                    <i data-lucide="plus-circle" class="text-indigo-600 w-5 h-5"></i> 
-                    Add Announcement
+                    <i data-lucide="plus-circle" class="text-indigo-600 w-5 h-5" id="modal-title-icon"></i> 
+                    <span id="modal-title-text">Add Announcement</span>
                 </h3>
                 <button id="btn-close-add" class="text-gray-400 hover:text-gray-600 transition-colors p-1">
                     <i data-lucide="x" class="w-5 h-5"></i>
@@ -186,11 +201,18 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
+                    <div class="col-span-2 md:col-span-1">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Category (Type)</label>
                         <select id="add-type" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm bg-white"></select>
                     </div>
-                    <div>
+                    <div class="col-span-2 md:col-span-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="add-status" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+                            <option value="Active">Active</option>
+                            <option value="Ended">Ended / Inactive</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Line of Business (LOB)</label>
                         <input type="text" id="add-lob" class="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="e.g., MX" />
                     </div>
@@ -224,12 +246,12 @@
         </div>
     </div>
 
-    <!-- Huddle Modal -->
+    <!-- Huddle Modal (Emails & Checklist) -->
     <div id="huddle-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all duration-200 scale-100">
             <div class="flex justify-between items-center p-4 border-b border-gray-100">
                 <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                    <i data-lucide="users" class="text-blue-600 w-5 h-5"></i> 
+                    <i data-lucide="check-square" class="text-blue-600 w-5 h-5"></i> 
                     Huddle Tracker
                 </h3>
                 <button id="btn-close-huddle" class="text-gray-400 hover:text-gray-600 transition-colors p-1">
@@ -237,21 +259,22 @@
                 </button>
             </div>
             
-            <div class="p-4 bg-gray-50">
+            <div class="p-4 bg-gray-50 flex flex-col max-h-[70vh]">
                 <p class="text-sm text-gray-600 mb-3">
-                    Track which agents have been briefed on: <br/>
+                    Tick associate emails who have been briefed on: <br/>
                     <span id="huddle-announcement-title" class="font-medium text-gray-900"></span>
                 </p>
                 
-                <form id="huddle-form" class="flex gap-2 mb-4">
-                    <input type="text" id="huddle-agent-input" placeholder="Enter agent name..." class="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                    <button type="submit" id="huddle-add-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center gap-1">
-                        <i data-lucide="plus" class="w-4 h-4"></i> Add
+                <!-- Form to add new emails to the global roster -->
+                <form id="huddle-form" class="flex gap-2 mb-4 admin-only hidden">
+                    <input type="email" id="huddle-agent-input" placeholder="Add associate email to roster..." class="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    <button type="submit" id="huddle-add-btn" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap">
+                        Add to Roster
                     </button>
                 </form>
 
-                <div id="huddle-list" class="space-y-2 max-h-[40vh] overflow-y-auto pr-1 custom-scrollbar">
-                    <!-- Agent list injected here -->
+                <div id="huddle-list" class="space-y-2 overflow-y-auto custom-scrollbar pr-1 flex-1">
+                    <!-- Checkbox list injected here -->
                 </div>
             </div>
             
@@ -295,11 +318,22 @@
     </div>
 
     <script>
+        // ----------------------------------------------------
+        // Supabase Initialization
+        // ----------------------------------------------------
+        const supabaseUrl = 'https://zrmabvqdaalucrcrhfev.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpybWFidnFkYWFsdWNyY3JoZmV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MjAxNjcsImV4cCI6MjA4ODM5NjE2N30.bGPPCGrIjjrFE5ivu0fgUIh0AsxXyku8YsYvynh0G3o';
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
         // Data State
         let announcements = [];
-
         let huddles = {}; 
+        let associateEmails = JSON.parse(localStorage.getItem('tempoAssociateEmails')) || [];
+        
+        let isAdmin = false; // Protected by code 52600480
         let activeHuddleModalId = null;
+        let editingAnnouncementId = null; 
+
         let statusChartInstance = null;
 
         // DOM Elements
@@ -318,12 +352,95 @@
         lucide.createIcons();
 
         // ----------------------------------------------------
+        // Admin Logic
+        // ----------------------------------------------------
+        document.getElementById('btn-admin-login').addEventListener('click', () => {
+            if (isAdmin) {
+                isAdmin = false;
+                alert("Admin mode disabled. Data management locked.");
+            } else {
+                const code = prompt("Enter Internal Access Code to unlock data management:");
+                if (code === "52600480") {
+                    isAdmin = true;
+                } else if (code !== null) {
+                    alert("Invalid access code.");
+                }
+            }
+            updateAdminUI();
+            renderTable(); // Re-render to show/hide Edit & Delete buttons
+            renderHuddleList(); // Re-render to show/hide delete email buttons
+        });
+
+        function updateAdminUI() {
+            const adminEls = document.querySelectorAll('.admin-only');
+            adminEls.forEach(el => {
+                if (isAdmin) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            });
+
+            const btn = document.getElementById('btn-admin-login');
+            if (isAdmin) {
+                btn.innerHTML = '<i data-lucide="unlock" class="w-4 h-4"></i> Data Management: ON';
+                btn.classList.remove('bg-gray-100', 'text-gray-600');
+                btn.classList.add('bg-green-100', 'text-green-700', 'border', 'border-green-300');
+            } else {
+                btn.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i> Admin Access';
+                btn.classList.add('bg-gray-100', 'text-gray-600');
+                btn.classList.remove('bg-green-100', 'text-green-700', 'border', 'border-green-300');
+            }
+            lucide.createIcons();
+        }
+
+        // ----------------------------------------------------
+        // Supabase Async Operations
+        // ----------------------------------------------------
+        async function fetchAnnouncements() {
+            try {
+                const { data, error } = await supabaseClient.from('announcements').select('*');
+                if (error) throw error;
+                if (data && data.length > 0) {
+                    announcements = data;
+                }
+            } catch (err) {
+                console.warn("Supabase fetch failed. Ensure your 'announcements' table exists. Falling back to local state.", err);
+            }
+            updateAllViews();
+        }
+
+        async function insertSupabase(item) {
+            try {
+                const { error } = await supabaseClient.from('announcements').insert([item]);
+                if (error) throw error;
+            } catch (err) { console.warn("Supabase insert skipped:", err); }
+        }
+
+        async function updateSupabase(id, updates) {
+            try {
+                const { error } = await supabaseClient.from('announcements').update(updates).eq('id', id);
+                if (error) throw error;
+            } catch (err) { console.warn("Supabase update skipped:", err); }
+        }
+
+        async function deleteSupabase(id) {
+            try {
+                const { error } = await supabaseClient.from('announcements').delete().eq('id', id);
+                if (error) throw error;
+            } catch (err) { console.warn("Supabase delete skipped:", err); }
+        }
+
+        async function insertManySupabase(items) {
+            try {
+                const { error } = await supabaseClient.from('announcements').insert(items);
+                if (error) throw error;
+            } catch (err) { console.warn("Supabase batch insert skipped:", err); }
+        }
+
+        // ----------------------------------------------------
         // Category Normalization
         // ----------------------------------------------------
         function getUnifiedCategory(type) {
             if (!type) return 'General';
             const t = type.toLowerCase();
-            // Group duplicate/similar values under unified categories
             if (t.includes('process') || t.includes('workflow') || t.includes('sop')) return 'Process and Workflow';
             if (t.includes('promo') || t.includes('marketing')) return 'Promotion';
             if (t.includes('feature') || t.includes('product') || t.includes('software') || t.includes('release')) return 'Product & Feature Update';
@@ -333,6 +450,13 @@
             if (t.includes('content') && !t.includes('issue')) return 'Content Update';
             if (t.includes('issue') || t.includes('outage')) return 'Issue/Outage';
             return 'General';
+        }
+
+        function isAnnouncementActive(statusStr) {
+            if (!statusStr) return true; // Default to active
+            const s = statusStr.toLowerCase();
+            if (s.includes('end') || s.includes('deactivate') || s.includes('inactive')) return false;
+            return true;
         }
 
         // ----------------------------------------------------
@@ -373,27 +497,22 @@
         function updateCategories() {
             const selected = elCategory.value || 'All';
             const categoriesSet = new Set(announcements.map(a => getUnifiedCategory(a.type)));
+            
+            const baseCats = ['Process and Workflow', 'Promotion', 'Product & Feature Update', 'Warehouse Update', 'Website Update', 'Billing Update', 'Content Update'];
+            baseCats.forEach(c => categoriesSet.add(c));
+            
             const categories = Array.from(categoriesSet).sort();
             
-            // Update Filter Dropdown
             elCategory.innerHTML = ['All', ...categories].map(cat => 
                 `<option value="${cat}" ${cat === selected ? 'selected' : ''}>${cat}</option>`
             ).join('');
 
-            // Update Add Modal Dropdown
             const addTypeSelect = document.getElementById('add-type');
             if (addTypeSelect) {
                 addTypeSelect.innerHTML = categories.map(cat => 
                     `<option value="${cat}">${cat}</option>`
                 ).join('');
             }
-        }
-
-        function isAnnouncementActive(statusStr) {
-            if (!statusStr) return true; // Default to true if not specified
-            const s = statusStr.toLowerCase();
-            if (s.includes('end') || s.includes('deactivate') || s.includes('inactive')) return false;
-            return true;
         }
 
         function renderDashboard() {
@@ -403,6 +522,8 @@
                 const breakdownContainer = document.getElementById('category-breakdown');
                 if (breakdownContainer) breakdownContainer.innerHTML = '';
                 if(statusChartInstance) { statusChartInstance.destroy(); statusChartInstance = null; }
+                const recentContainer = document.getElementById('last-7-days-content');
+                if (recentContainer) recentContainer.innerHTML = '<p class="text-sm text-gray-500">No data.</p>';
                 return;
             }
             
@@ -434,6 +555,11 @@
             let inactiveCount = 0;
             const categoryCounts = {};
 
+            const today = new Date();
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(today.getDate() - 7);
+            const recentAnns = [];
+
             announcements.forEach(a => {
                 // Determine Status
                 if (isAnnouncementActive(a.status)) {
@@ -445,9 +571,35 @@
                 // Determine Category Count
                 const cat = getUnifiedCategory(a.type);
                 categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+
+                // Group for Last 7 Days
+                if (a.launchDate) {
+                    const d = new Date(a.launchDate);
+                    if (!isNaN(d.getTime())) {
+                        if (d >= sevenDaysAgo && d <= today) {
+                            recentAnns.push(a);
+                        }
+                    }
+                }
             });
 
-            // Render Chart
+            // Render Last 7 Days
+            recentAnns.sort((a, b) => new Date(b.launchDate) - new Date(a.launchDate));
+            const recentContainer = document.getElementById('last-7-days-content');
+            if (recentContainer) {
+                if (recentAnns.length === 0) {
+                    recentContainer.innerHTML = '<p class="text-sm text-gray-500">No announcements in the last 7 days.</p>';
+                } else {
+                    recentContainer.innerHTML = recentAnns.map(a => `
+                        <div class="border-l-4 border-blue-500 pl-3 py-1.5 hover:bg-gray-50 transition-colors">
+                            <p class="text-[10px] font-bold text-gray-400 mb-0.5 uppercase tracking-wider">${escapeHTML(a.launchDate)} &bull; ${escapeHTML(getUnifiedCategory(a.type))}</p>
+                            <p class="text-sm font-semibold text-gray-800 line-clamp-2 leading-tight">${escapeHTML(a.title)}</p>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Render Chart: Status
             const ctx = document.getElementById('statusChart');
             if (ctx) {
                 if (statusChartInstance) {
@@ -534,7 +686,9 @@
             const filtered = announcements.filter(item => {
                 const matchesSearch = 
                     (item.title && item.title.toLowerCase().includes(searchTerm)) || 
-                    (item.summary && item.summary.toLowerCase().includes(searchTerm));
+                    (item.summary && item.summary.toLowerCase().includes(searchTerm)) ||
+                    (item.reference && item.reference.toLowerCase().includes(searchTerm)) ||
+                    (item.slackUrl && item.slackUrl.toLowerCase().includes(searchTerm));
                 
                 const unifiedCat = getUnifiedCategory(item.type);
                 const matchesCat = selectedCategory === 'All' || unifiedCat === selectedCategory;
@@ -547,6 +701,13 @@
                 }
                 
                 return matchesSearch && matchesCat && matchesDate;
+            });
+
+            // Sort filtered announcements by launchDate descending (newest first)
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.launchDate || 0);
+                const dateB = new Date(b.launchDate || 0);
+                return dateB - dateA; 
             });
 
             if (filtered.length === 0) {
@@ -563,9 +724,14 @@
             elTableBody.innerHTML = filtered.map(item => {
                 const huddleCount = huddles[item.id]?.length || 0;
                 const huddleBtnClass = huddleCount > 0 
-                    ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' 
                     : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100';
                 
+                const isActive = isAnnouncementActive(item.status);
+                const statusBadge = isActive 
+                    ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 w-max border border-green-200 shadow-sm">Active</span>`
+                    : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 w-max border border-gray-200 shadow-sm">Ended</span>`;
+
                 let linksHTML = '';
                 if (item.reference && item.reference !== '-') {
                     linksHTML += `
@@ -576,40 +742,53 @@
                 }
                 if (item.slackUrl && item.slackUrl !== '-') {
                     linksHTML += `
-                        <a href="${item.slackUrl}" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 hover:underline">
+                        <a href="${item.slackUrl}" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 hover:underline mt-1">
                             <i data-lucide="message-square" class="w-3 h-3"></i> Slack Thread
                         </a>
                     `;
                 }
 
                 return `
-                    <tr class="hover:bg-blue-50/50 transition-colors">
+                    <tr class="hover:bg-blue-50/50 transition-colors group">
                         <td class="px-6 py-4 whitespace-normal min-w-[300px]">
-                            <div class="font-semibold text-gray-900 mb-1">${escapeHTML(item.title)}</div>
+                            <div class="font-semibold text-gray-900 mb-1 leading-tight">${escapeHTML(item.title)}</div>
                             <div class="text-gray-500 text-xs line-clamp-2 leading-relaxed" title="${escapeHTML(item.summary || '')}">
                                 ${escapeHTML(item.summary || '')}
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <div class="flex flex-col gap-1">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 w-max">
-                                    ${escapeHTML(getUnifiedCategory(item.type))}
-                                </span>
-                                <span class="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 w-max">
+                                        ${escapeHTML(getUnifiedCategory(item.type))}
+                                    </span>
+                                    ${statusBadge}
+                                </div>
+                                <span class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                     <i data-lucide="calendar" class="w-3 h-3"></i> ${escapeHTML(item.launchDate || 'N/A')}
                                 </span>
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <div class="flex flex-col gap-2">
+                            <div class="flex flex-col">
                                 ${linksHTML}
                             </div>
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <button onclick="openHuddleModal('${item.id}')" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${huddleBtnClass}">
-                                <i data-lucide="users" class="w-3.5 h-3.5"></i>
-                                ${huddleCount > 0 ? `${huddleCount} Agents Huddled` : 'Track Huddle'}
-                            </button>
+                            <div class="flex items-center justify-end gap-2">
+                                <button onclick="openHuddleModal('${item.id}')" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${huddleBtnClass}">
+                                    <i data-lucide="check-square" class="w-3.5 h-3.5"></i>
+                                    ${huddleCount > 0 ? `${huddleCount} Ticked` : 'Huddle'}
+                                </button>
+                                ${isAdmin ? `
+                                <button onclick="openEditModal('${item.id}')" class="p-1.5 text-gray-400 hover:text-blue-600 transition-colors bg-white border border-gray-200 rounded-md shadow-sm" title="Edit">
+                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteAnnouncement('${item.id}')" class="p-1.5 text-gray-400 hover:text-red-600 transition-colors bg-white border border-gray-200 rounded-md shadow-sm" title="Delete">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                                ` : ''}
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -619,47 +798,83 @@
         }
 
         // ----------------------------------------------------
-        // Add Manual Modal & Auto-Title Logic
+        // Add/Edit Manual Modal & Auto-Title Logic
         // ----------------------------------------------------
         document.getElementById('btn-show-add').addEventListener('click', () => {
-            modalAdd.classList.remove('hidden');
-            // Auto-set today's date
-            document.getElementById('add-launch').value = new Date().toISOString().split('T')[0];
-        });
-
-        function closeAddModal() {
-            modalAdd.classList.add('hidden');
+            editingAnnouncementId = null;
+            document.getElementById('modal-title-text').textContent = 'Add Announcement';
+            document.getElementById('modal-title-icon').setAttribute('data-lucide', 'plus-circle');
+            
             // clear fields
             document.getElementById('add-title').value = '';
             document.getElementById('add-summary').value = '';
             document.getElementById('add-lob').value = '';
             document.getElementById('add-ref').value = '';
             document.getElementById('add-slack').value = '';
+            document.getElementById('add-status').value = 'Active';
+            
+            // Auto-set today's date
+            document.getElementById('add-launch').value = new Date().toISOString().split('T')[0];
+            
+            lucide.createIcons();
+            modalAdd.classList.remove('hidden');
+        });
+
+        window.openEditModal = function(id) {
+            const ann = announcements.find(a => a.id === id);
+            if (!ann) return;
+
+            editingAnnouncementId = id;
+            document.getElementById('modal-title-text').textContent = 'Edit Announcement';
+            document.getElementById('modal-title-icon').setAttribute('data-lucide', 'edit');
+            
+            document.getElementById('add-title').value = ann.title || '';
+            document.getElementById('add-summary').value = ann.summary || '';
+            document.getElementById('add-type').value = getUnifiedCategory(ann.type) || '';
+            document.getElementById('add-lob').value = ann.lob || '';
+            document.getElementById('add-launch').value = ann.launchDate || '';
+            document.getElementById('add-end').value = ann.endDate || '';
+            document.getElementById('add-ref').value = ann.reference || '';
+            document.getElementById('add-slack').value = ann.slackUrl || '';
+            document.getElementById('add-status').value = isAnnouncementActive(ann.status) ? 'Active' : 'Ended';
+
+            lucide.createIcons();
+            modalAdd.classList.remove('hidden');
+        };
+
+        window.deleteAnnouncement = async function(id) {
+            if (!confirm("Are you sure you want to delete this announcement? This action cannot be undone.")) return;
+            
+            announcements = announcements.filter(a => a.id !== id);
+            updateAllViews();
+            await deleteSupabase(id); // Supabase sync
+        };
+
+        function closeAddModal() {
+            modalAdd.classList.add('hidden');
+            editingAnnouncementId = null;
         }
 
         document.getElementById('btn-close-add').addEventListener('click', closeAddModal);
         document.getElementById('btn-cancel-add').addEventListener('click', closeAddModal);
 
-        // Simple Heuristic to suggest a title from description
         document.getElementById('btn-auto-title').addEventListener('click', () => {
             const summary = document.getElementById('add-summary').value.trim();
             if (!summary) return alert('Please enter a summary/description first to generate a title.');
             
-            // Extract meaningful words (remove pure punctuation, filter short words)
             const words = summary.replace(/[^a-zA-Z0-9\s-]/g, '').split(/\s+/).filter(w => w.length > 3);
-            const topWords = words.slice(0, 6); // Grab the first 6 significant words
+            const topWords = words.slice(0, 6); 
             
             if (topWords.length === 0) {
                 document.getElementById('add-title').value = "New Announcement Update";
                 return;
             }
 
-            // Title Case the generated string
             const titleCased = topWords.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
             document.getElementById('add-title').value = "Update: " + titleCased;
         });
 
-        document.getElementById('btn-submit-add').addEventListener('click', () => {
+        document.getElementById('btn-submit-add').addEventListener('click', async () => {
             const title = document.getElementById('add-title').value.trim();
             const summary = document.getElementById('add-summary').value.trim();
             
@@ -667,8 +882,7 @@
                 return alert("Title and Summary are required fields.");
             }
 
-            const newAnn = {
-                id: `manual-${Date.now()}`,
+            const updatedAnn = {
                 title: title,
                 summary: summary,
                 type: document.getElementById('add-type').value,
@@ -677,13 +891,27 @@
                 endDate: document.getElementById('add-end').value,
                 reference: document.getElementById('add-ref').value.trim(),
                 slackUrl: document.getElementById('add-slack').value.trim(),
-                status: 'Active'
+                status: document.getElementById('add-status').value
             };
 
-            announcements.unshift(newAnn); // Add to the top of the array
-            
-            closeAddModal();
-            updateAllViews();
+            if (editingAnnouncementId) {
+                // Editing existing
+                updatedAnn.id = editingAnnouncementId;
+                const index = announcements.findIndex(a => a.id === editingAnnouncementId);
+                if (index !== -1) {
+                    announcements[index] = updatedAnn;
+                }
+                updateAllViews();
+                closeAddModal();
+                await updateSupabase(updatedAnn.id, updatedAnn);
+            } else {
+                // Adding new
+                updatedAnn.id = `manual-${Date.now()}`;
+                announcements.unshift(updatedAnn); // Add to top locally
+                updateAllViews();
+                closeAddModal();
+                await insertSupabase(updatedAnn);
+            }
         });
 
 
@@ -696,7 +924,7 @@
         elEndDate.addEventListener('input', renderTable);
 
         // ----------------------------------------------------
-        // Huddle Modal Logic
+        // Huddle Modal Logic & Email Roster
         // ----------------------------------------------------
         const huddleListEl = document.getElementById('huddle-list');
         const huddleTitleEl = document.getElementById('huddle-announcement-title');
@@ -710,70 +938,85 @@
             huddleTitleEl.textContent = announcement ? announcement.title : '';
             renderHuddleList();
             modalHuddle.classList.remove('hidden');
-            huddleInputEl.focus();
         };
 
         function closeHuddleModal() {
             modalHuddle.classList.add('hidden');
             activeHuddleModalId = null;
             huddleInputEl.value = '';
-            toggleHuddleSubmit();
         }
 
         document.getElementById('btn-close-huddle').addEventListener('click', closeHuddleModal);
         document.getElementById('btn-done-huddle').addEventListener('click', closeHuddleModal);
 
-        function toggleHuddleSubmit() {
+        // Add Email to Global Roster
+        huddleInputEl.addEventListener('input', () => {
             huddleAddBtn.disabled = !huddleInputEl.value.trim();
-        }
-        huddleInputEl.addEventListener('input', toggleHuddleSubmit);
+        });
 
         huddleForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            const name = huddleInputEl.value.trim();
-            if (!name || !activeHuddleModalId) return;
+            const email = huddleInputEl.value.trim().toLowerCase();
+            if (!email) return;
 
-            if (!huddles[activeHuddleModalId]) {
-                huddles[activeHuddleModalId] = [];
+            if (!associateEmails.includes(email)) {
+                associateEmails.push(email);
+                localStorage.setItem('tempoAssociateEmails', JSON.stringify(associateEmails));
             }
-            if (!huddles[activeHuddleModalId].includes(name)) {
-                huddles[activeHuddleModalId].push(name);
-                huddleInputEl.value = '';
-                toggleHuddleSubmit();
-                renderHuddleList();
-                renderTable(); // Update main table button
-            }
+            huddleInputEl.value = '';
+            huddleAddBtn.disabled = true;
+            renderHuddleList();
         });
 
-        window.removeAgent = function(agentName) {
+        // Toggle Huddle completion for an individual
+        window.toggleHuddleEmail = function(email) {
             if (!activeHuddleModalId) return;
-            huddles[activeHuddleModalId] = huddles[activeHuddleModalId].filter(n => n !== agentName);
+            if (!huddles[activeHuddleModalId]) huddles[activeHuddleModalId] = [];
+            
+            const idx = huddles[activeHuddleModalId].indexOf(email);
+            if (idx > -1) {
+                huddles[activeHuddleModalId].splice(idx, 1); // uncheck
+            } else {
+                huddles[activeHuddleModalId].push(email); // check
+            }
+            
             renderHuddleList();
-            renderTable(); // Update main table button
+            renderTable(); // updates count on the main table button
+        };
+
+        // Remove Email from Global Roster (Admin Only)
+        window.removeAssociateEmail = function(email) {
+            if (!confirm(`Are you sure you want to remove ${email} from the roster?`)) return;
+            associateEmails = associateEmails.filter(e => e !== email);
+            localStorage.setItem('tempoAssociateEmails', JSON.stringify(associateEmails));
+            renderHuddleList();
         };
 
         function renderHuddleList() {
             const agents = huddles[activeHuddleModalId] || [];
-            if (agents.length === 0) {
+            
+            if (associateEmails.length === 0) {
                 huddleListEl.innerHTML = `
-                    <p class="text-sm text-gray-500 text-center py-4 bg-white rounded-lg border border-dashed border-gray-200">
-                        No agents tracked for this update yet.
-                    </p>
+                    <div class="text-sm text-gray-500 text-center py-6 bg-white rounded-lg border border-dashed border-gray-200">
+                        <i data-lucide="mail-warning" class="w-8 h-8 mx-auto text-gray-300 mb-2"></i>
+                        No associate emails added to the roster yet.<br/>
+                        ${isAdmin ? 'Use the form above to add your team members.' : 'Ask an admin to populate the roster.'}
+                    </div>
                 `;
+                lucide.createIcons({ root: huddleListEl });
                 return;
             }
 
-            huddleListEl.innerHTML = agents.map(agent => `
-                <div class="flex justify-between items-center bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
-                    <span class="text-sm font-medium text-gray-700 flex items-center gap-2">
-                        <i data-lucide="check-circle-2" class="text-green-500 w-4 h-4"></i>
-                        ${escapeHTML(agent)}
-                    </span>
-                    <button onclick="removeAgent('${escapeHTML(agent)}')" class="text-gray-400 hover:text-red-500 transition-colors" title="Remove">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
+            huddleListEl.innerHTML = associateEmails.map(email => {
+                const isChecked = agents.includes(email);
+                return `
+                <div class="flex items-center gap-3 bg-white p-3 rounded-lg border ${isChecked ? 'border-blue-200 bg-blue-50/30' : 'border-gray-200'} shadow-sm cursor-pointer hover:bg-gray-50 transition-colors" onclick="toggleHuddleEmail('${escapeHTML(email)}')">
+                    <input type="checkbox" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer pointer-events-none" ${isChecked ? 'checked' : ''} />
+                    <span class="text-sm font-medium ${isChecked ? 'text-gray-900' : 'text-gray-600'} select-none flex-1 truncate" title="${escapeHTML(email)}">${escapeHTML(email)}</span>
+                    ${isAdmin ? `<button onclick="event.stopPropagation(); removeAssociateEmail('${escapeHTML(email)}')" class="p-1 text-gray-400 hover:text-red-500 transition-colors rounded-md" title="Delete from roster"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             lucide.createIcons({ root: huddleListEl });
         }
@@ -803,7 +1046,7 @@
         }
         pasteTextarea.addEventListener('input', togglePasteSubmit);
 
-        btnSubmitPaste.addEventListener('click', () => {
+        btnSubmitPaste.addEventListener('click', async () => {
             const content = pasteTextarea.value.trim();
             if (!content) return;
 
@@ -838,6 +1081,7 @@
             
             closePasteModal();
             updateAllViews();
+            await insertManySupabase(validNewData); // Supabase sync
             alert(`Successfully imported ${validNewData.length} announcements from clipboard!`);
         });
 
@@ -853,7 +1097,7 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = (event) => {
+            reader.onload = async (event) => {
                 const text = event.target.result;
                 const rows = parseCSV(text);
                 
@@ -881,6 +1125,7 @@
                 announcements = [...announcements, ...validNewData];
                 
                 updateAllViews();
+                await insertManySupabase(validNewData); // Supabase sync
                 alert(`Successfully imported ${validNewData.length} announcements!`);
             };
             reader.readAsText(file);
@@ -948,7 +1193,8 @@
         // ----------------------------------------------------
         // Initial Startup
         // ----------------------------------------------------
-        updateAllViews();
+        // Try fetching DB data on page load
+        fetchAnnouncements();
 
     </script>
 </body>
